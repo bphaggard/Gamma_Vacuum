@@ -1,9 +1,9 @@
-import csv
 import sys
-import pyqtgraph as pg
-from PyQt5.QtCore import Qt
+import csv
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QPushButton, QFileDialog, QLabel)
+from PyQt5.QtCore import Qt
+import pyqtgraph as pg
 
 
 class MainWindow(QMainWindow):
@@ -40,6 +40,20 @@ class MainWindow(QMainWindow):
         self.plot_widget.setLabel('left', 'Pressure', units='Pa')
         self.plot_widget.setLabel('bottom', 'Time')
 
+        # Initialize crosshair elements (will be created after loading data)
+        self.vLine = None
+        self.hLine = None
+        self.crosshair_label = None
+        self.crosshair_visible = False
+
+        # Data storage for crosshair
+        self.time_data = []
+        self.pressure_data = []
+        self.time_labels = []
+
+        # Connect mouse click event
+        self.plot_widget.scene().sigMouseClicked.connect(self.mouse_clicked)
+
     def load_csv(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select CSV File", "", "CSV Files (*.csv);;All Files (*)"
@@ -47,9 +61,9 @@ class MainWindow(QMainWindow):
 
         if file_path:
             try:
-                time_data = []
-                pressure_data = []
-                time_labels = []
+                self.time_data = []
+                self.pressure_data = []
+                self.time_labels = []
 
                 with open(file_path, 'r') as file:
                     csv_reader = csv.reader(file)
@@ -60,39 +74,53 @@ class MainWindow(QMainWindow):
                             try:
                                 # Parse pressure
                                 pressure = float(row[0])
-                                pressure_data.append(pressure)
+                                self.pressure_data.append(pressure)
 
                                 # Store time string for labels
-                                time_labels.append(row[1])
+                                self.time_labels.append(row[1])
 
                                 # Use index for x-axis positioning
-                                time_data.append(i)
+                                self.time_data.append(i)
 
                             except ValueError:
                                 continue
 
-                if time_data and pressure_data:
+                if self.time_data and self.pressure_data:
                     # Clear previous plot
                     self.plot_widget.clear()
 
+                    # Create crosshair elements after clearing
+                    self.vLine = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen('w', width=1))
+                    self.hLine = pg.InfiniteLine(angle=0, movable=False, pen=pg.mkPen('w', width=1))
+                    self.crosshair_label = pg.TextItem(anchor=(0, 1), color='w')
+
+                    self.plot_widget.addItem(self.vLine, ignoreBounds=True)
+                    self.plot_widget.addItem(self.hLine, ignoreBounds=True)
+                    self.plot_widget.addItem(self.crosshair_label)
+
+                    # Hide crosshair initially
+                    self.vLine.setVisible(False)
+                    self.hLine.setVisible(False)
+                    self.crosshair_label.setVisible(False)
+                    self.crosshair_visible = False
+
                     # Plot the data
                     self.plot_widget.plot(
-                        time_data,
-                        pressure_data,
-                        pen=pg.mkPen(color='g', width=2),
+                        self.time_data,
+                        self.pressure_data,
+                        pen=pg.mkPen(color='orange', width=2),
                         symbol='o',
-                        symbolPen='g',
-                        symbolBrush=(0, 255, 0, 100),
-                        symbolSize=8,
-                        name='Pressure'
+                        symbolPen='orange',
+                        symbolBrush='orange',
+                        symbolSize=6
                     )
 
                     # Set up custom x-axis labels with time strings
                     # Show every nth label to avoid overcrowding
-                    step = max(1, len(time_labels) // 10)
+                    step = max(1, len(self.time_labels) // 10)
                     ticks = []
-                    for i in range(0, len(time_labels), step):
-                        ticks.append((i, time_labels[i]))
+                    for i in range(0, len(self.time_labels), step):
+                        ticks.append((i, self.time_labels[i]))
 
                     ax = self.plot_widget.getAxis('bottom')
                     ax.setTicks([ticks])
@@ -111,13 +139,14 @@ class MainWindow(QMainWindow):
 
                     # Update window title and info
                     self.plot_widget.setTitle(f'Data from {file_path.split("/")[-1]}')
-                    self.info_label.setText(f"Loaded {len(pressure_data)} data points from {file_path.split('/')[-1]}")
+                    self.info_label.setText(
+                        f"Loaded {len(self.pressure_data)} data points from {file_path.split('/')[-1]}")
 
                     # Set ranges
-                    self.plot_widget.setXRange(0, len(time_data) - 1)
-                    if pressure_data:
-                        min_pressure = min(pressure_data)
-                        max_pressure = max(pressure_data)
+                    self.plot_widget.setXRange(0, len(self.time_data) - 1)
+                    if self.pressure_data:
+                        min_pressure = min(self.pressure_data)
+                        max_pressure = max(self.pressure_data)
                         margin = (max_pressure - min_pressure) * 0.1
                         self.plot_widget.setYRange(min_pressure - margin, max_pressure + margin)
                 else:
@@ -125,6 +154,46 @@ class MainWindow(QMainWindow):
 
             except Exception as e:
                 self.info_label.setText(f"Error loading CSV: {str(e)}")
+
+    def mouse_clicked(self, event):
+        """Show crosshair and values when user clicks on the plot"""
+        # Only show crosshair if data has been loaded
+        if not self.vLine or not self.hLine or not self.crosshair_label:
+            return
+
+        pos = event.scenePos()
+
+        if self.plot_widget.sceneBoundingRect().contains(pos):
+            mouse_point = self.plot_widget.plotItem.vb.mapSceneToView(pos)
+            x = mouse_point.x()
+            y = mouse_point.y()
+
+            # Find nearest data point and display values
+            if self.time_data and self.pressure_data:
+                # Find the closest index
+                closest_idx = min(range(len(self.time_data)),
+                                  key=lambda i: abs(self.time_data[i] - x))
+
+                if 0 <= closest_idx < len(self.time_data):
+                    closest_x = self.time_data[closest_idx]
+                    closest_pressure = self.pressure_data[closest_idx]
+                    closest_time_label = self.time_labels[closest_idx]
+
+                    # Update crosshair position to nearest point
+                    self.vLine.setPos(closest_x)
+                    self.hLine.setPos(closest_pressure)
+
+                    # Update label text
+                    self.crosshair_label.setText(
+                        f"Pressure: {closest_pressure:.2e} Pa\nTime: {closest_time_label}"
+                    )
+                    self.crosshair_label.setPos(closest_x, closest_pressure)
+
+                    # Show crosshair
+                    self.vLine.setVisible(True)
+                    self.hLine.setVisible(True)
+                    self.crosshair_label.setVisible(True)
+                    self.crosshair_visible = True
 
 
 if __name__ == '__main__':
