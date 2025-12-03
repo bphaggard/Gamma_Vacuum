@@ -146,17 +146,17 @@ class MainWindow(QtWidgets.QMainWindow):
                     ax.setTicks([ticks])
 
                     # Auto-adjust x-axis range to show all data
-                    if self.time:
-                        self.plot_graph.setXRange(min(self.time), max(self.time))
+                    #if self.time:
+                    #    self.plot_graph.setXRange(min(self.time), max(self.time))
 
                     print(f"Updated plot: Total data points = {len(self.time)}")
                     # Set ranges
-                    self.plot_graph.setXRange(0, len(self.time) - 1)
-                    if self.pressure:
-                        min_pressure = min(self.pressure)
-                        max_pressure = max(self.pressure)
-                        margin = (max_pressure - min_pressure) * 0.1
-                        self.plot_graph.setYRange(min_pressure - margin, max_pressure + margin)
+                    #self.plot_graph.setXRange(0, len(self.time) - 1)
+                    # if self.pressure:
+                    #     min_pressure = min(self.pressure)
+                    #     max_pressure = max(self.pressure)
+                    #     margin = (max_pressure - min_pressure) * 0.1
+                    #     self.plot_graph.setYRange(min_pressure - margin, max_pressure + margin)
 
         except FileNotFoundError:
             print(f"CSV file '{self.csv_file}' not found")
