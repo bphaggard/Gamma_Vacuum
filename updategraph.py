@@ -1,6 +1,11 @@
 import csv
+import sys
 from PyQt5 import QtCore, QtWidgets
 import pyqtgraph as pg
+from PyQt5.QtCore import QProcess
+from PyQt5.QtWidgets import QLabel, QLineEdit
+
+import dynamic_data
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -8,12 +13,52 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
 
         self.setWindowTitle("PyQtGraph Dynamic Graph")
+        self.resize(800, 600)  # Set window size
         self.csv_file = csv_file
         self.last_row_count = 0
 
+        # QProcess for running data collection script
+        self.process = QProcess(self)
+
+        # Create central widget and layout
+        central_widget = QtWidgets.QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QtWidgets.QVBoxLayout(central_widget)
+
+        # Create horizontal layouts
+        input_layout = QtWidgets.QHBoxLayout()
+        buttons_layout = QtWidgets.QHBoxLayout()
+
+        # Add label and line edit
+        self.label1 = QLabel("Data file name:")
+        input_layout.addWidget(self.label1)
+
+        self.data_line_edit = QLineEdit()
+        self.data_line_edit.setPlaceholderText("Enter data file name")
+        input_layout.addWidget(self.data_line_edit)
+
+        self.data_save_button = QtWidgets.QPushButton("Save Data File Name")
+        self.data_save_button.clicked.connect(self.save_data_file_name)
+        input_layout.addWidget(self.data_save_button)
+
+        layout.addLayout(input_layout)
+
+        # Add button
+        self.collect_button = QtWidgets.QPushButton("Start Data Collection")
+        self.collect_button.clicked.connect(self.run_data_collection)
+        buttons_layout.addWidget(self.collect_button)
+
+        # Stop button
+        self.stop_button = QtWidgets.QPushButton("Stop Data Collection")
+        self.stop_button.clicked.connect(self.stop_data_collection)
+        self.stop_button.setEnabled(False)
+        buttons_layout.addWidget(self.stop_button)
+
+        layout.addLayout(buttons_layout)
+
         # Pressure vs time dynamic plot
         self.plot_graph = pg.PlotWidget()
-        self.setCentralWidget(self.plot_graph)
+        layout.addWidget(self.plot_graph)
         self.plot_graph.setBackground("black")
         self.plot_graph.setTitle("DIGITEL SPCe (Live Pressure CSV Data)", color="w", size="20pt")
         styles = {"color": "white", "font-size": "14px"}
@@ -21,7 +66,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plot_graph.setLabel("bottom", "Time (min)", **styles)
         self.plot_graph.addLegend()
         self.plot_graph.showGrid(x=True, y=True)
-        self.plot_graph.setYRange(20, 40)
+        #self.plot_graph.setYRange(20, 40)
 
         # Data storage - keeps ALL data
         self.time = []
@@ -37,13 +82,42 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         # Load initial data from CSV
-        self.load_csv_data()
+        #self.load_csv_data()
 
         # Add a timer to check for new data in CSV
         self.timer = QtCore.QTimer()
         self.timer.setInterval(500)  # Check every 500ms
         self.timer.timeout.connect(self.update_plot)
         self.timer.start()
+
+    def save_data_file_name(self):
+        csv_file = self.data_line_edit.text()
+        if csv_file:
+            self.csv_file = csv_file
+            print(f"CSV file set to: {csv_file}")
+
+            # Clear existing data
+            self.time = []
+            self.pressure = []
+            self.time_labels = []
+            self.last_row_count = 0
+
+            # Try to load the new file
+            #self.load_csv_data()
+        else:
+            print("Please enter a filename")
+
+    def run_data_collection(self):
+        if self.process.state() == QProcess.NotRunning:
+            self.process.start(sys.executable, ["dynamic_data.py", self.csv_file])
+            self.collect_button.setEnabled(False)
+            self.stop_button.setEnabled(True)
+
+    def stop_data_collection(self):
+        if self.process.state() == QProcess.Running:
+            self.process.kill()
+            self.collect_button.setEnabled(True)
+            self.stop_button.setEnabled(False)
 
     def load_csv_data(self):
         """Load all data from CSV file"""
@@ -110,7 +184,11 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             with open(self.csv_file, 'r') as f:
                 reader = csv.reader(f)
-                next(reader)
+                try:
+                    next(reader) # Skip header
+                except StopIteration:
+                    return # File is empty
+
                 rows = list(reader)
 
                 # Skip if no data rows
@@ -159,9 +237,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     #     self.plot_graph.setYRange(min_pressure - margin, max_pressure + margin)
 
         except FileNotFoundError:
-            print(f"CSV file '{self.csv_file}' not found")
+            #print(f"CSV file '{self.csv_file}' not found")
+            pass
         except Exception as e:
-            print(f"Error updating plot: {e}")
+            pass
+            #print(f"Error updating plot: {e}")
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <title>SPCe graph</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+</head>
+<body>
+  <h2>DIGITEL SPCe pressure graph</h2>
+  <div style="margin-bottom: 10px;">
+    <button onclick="chart.resetZoom()">Reset zoom</button>
+  </div>
+  <div style="height: 80vh;">
+    <canvas id="myChart"></canvas>
+  </div>
+
+  <script>
+    const ctx = document.getElementById('myChart').getContext('2d');
+
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Pressure',
+          data: [],
+          borderColor: 'rgb(75, 192, 192)',      // barva čáry
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',  // barva výplně pod čárou
+          borderWidth: 2,                        // tloušťka čáry
+          pointRadius: 0,                        // velikost bodů (0 = žádné body)
+          pointBackgroundColor: 'rgb(75, 192, 192)',  // barva bodů
+          pointBorderColor: 'rgb(75, 192, 192)',      // barva okraje bodů
+          pointBorderWidth: 1,                   // tloušťka okraje bodů
+          pointHoverRadius: 5,                   // velikost bodu při najetí myší
+          tension: 0.1
+        }]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          zoom: {
+            zoom: {
+              wheel: {
+                enabled: true,  // zoom kolečkem myši
+              },
+              pinch: {
+                enabled: true   // zoom na dotykovém displeji
+              },
+              mode: 'xy',       // zoom v obou osách
+            },
+            pan: {
+              enabled: true,
+              mode: 'xy',       // posun v obou osách
+            }
+          },
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              padding: 20
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Time' }
+          },
+          y: {
+            title: { display: true, text: 'Pressure' }
+          }
+        },
+        layout: {
+          padding: {
+            bottom: 30
+          }
+        }
+      }
+    });
+
+    async function fetchData() {
+      try {
+        const res = await fetch("/data");
+        const json = await res.json();
+
+        console.log("Načteno řádků:", json.labels.length);
+        console.log("Prvních 5 časů:", json.labels.slice(0, 5));
+        console.log("Prvních 5 hodnot:", json.values.slice(0, 5));
+
+        // Nahraď všechna data novými
+        chart.data.labels = json.labels;
+        chart.data.datasets[0].data = json.values;
+
+        chart.update();
+      } catch (error) {
+        console.error("Chyba při načítání dat:", error);
+      }
+    }
+
+    // Načti data ihned a pak každých 2 sekundy
+    fetchData();
+    setInterval(fetchData, 2000);
+  </script>
+</body>
+</html>
