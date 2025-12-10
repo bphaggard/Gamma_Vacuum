@@ -9,4 +9,4 @@ Used components:
 - The null modem serial cable
 
 # PyQt Graph:
-<img width="885" height="725" alt="PyQt_graph" src="https://github.com/user-attachments/assets/cab2bcd5-e449-4aa1-8d13-96b1f5091dda" />
+<img width="1188" height="722" alt="Snímek obrazovky 2025-12-10 062635" src="https://github.com/user-attachments/assets/6eca32a8-36c4-4f7d-b15f-ea9013f41bb5" />
