@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QPushButton, QFileDialog, QLabel)
 from PyQt5.QtCore import Qt
 import pyqtgraph as pg
+from pyqtgraph.Qt import QtCore
 
 
 class MainWindow(QMainWindow):
@@ -35,7 +36,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.plot_widget)
 
         # Configure plot
-        self.plot_widget.showGrid(x=True, y=True)
+        self.plot_widget.setBackground('w')
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
         self.plot_widget.addLegend()
         self.plot_widget.setLabel('left', 'Pressure', units='Pa')
         self.plot_widget.setLabel('bottom', 'Time')
@@ -90,9 +92,11 @@ class MainWindow(QMainWindow):
                     self.plot_widget.clear()
 
                     # Create crosshair elements after clearing
-                    self.vLine = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen('w', width=1))
-                    self.hLine = pg.InfiniteLine(angle=0, movable=False, pen=pg.mkPen('w', width=1))
-                    self.crosshair_label = pg.TextItem(anchor=(0, 1), color='w')
+                    self.vLine = pg.InfiniteLine(angle=90, movable=False,
+                                           pen=pg.mkPen('r', width=1, style=QtCore.Qt.DashLine))
+                    self.hLine = pg.InfiniteLine(angle=0, movable=False,
+                                           pen=pg.mkPen('r', width=1, style=QtCore.Qt.DashLine))
+                    self.crosshair_label = pg.TextItem(anchor=(0, 1), color='black')
 
                     self.plot_widget.addItem(self.vLine, ignoreBounds=True)
                     self.plot_widget.addItem(self.hLine, ignoreBounds=True)
@@ -108,11 +112,7 @@ class MainWindow(QMainWindow):
                     self.plot_widget.plot(
                         self.time_data,
                         self.pressure_data,
-                        pen=pg.mkPen(color='orange', width=2),
-                        symbol='o',
-                        symbolPen='orange',
-                        symbolBrush='orange',
-                        symbolSize=6
+                        pen=pg.mkPen(color=(75, 192, 192), width=4)
                     )
 
                     # Set up custom x-axis labels with time strings
