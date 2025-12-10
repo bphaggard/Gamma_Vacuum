@@ -1,5 +1,6 @@
 # Gamma Vacuum DIGITEL SPCe
 This project demonstrates how to read data from DIGITEL SPCe controller via Serial port. Python script read pressure values and save it to csv file. If you want to monitor pressure leakage you can load csv and create graph with pyqtgraph.  
+desktop_monitor.py works as live pressure monitor  
 SPCe type: https://www.gammavacuum.com/products/digitel-controllers/3337/digitel-spc  
 Command packet structure used from SPCe manual  
 
