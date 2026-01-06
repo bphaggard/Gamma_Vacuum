@@ -7,7 +7,6 @@ from pyqtgraph.Qt import QtCore, QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 from storage.csv_handler import CSVHandler
 from gui.custom_axes import TimeAxisItem, ScientificAxisItem
-from config import DEFAULT_PORT, DEFAULT_ADDR, DEFAULT_BAUD
 
 class PressureViewer(QtWidgets.QMainWindow):
     """Hlavní okno pro monitoring tlaku"""
