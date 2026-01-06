@@ -3,6 +3,7 @@ This project demonstrates how to read data from DIGITEL SPCe controller via Seri
 desktop_monitor.py works as live pressure monitor  
 SPCe type: https://www.gammavacuum.com/products/digitel-controllers/3337/digitel-spc  
 Command packet structure used from SPCe manual  
+Python version: 3.12.7  
 
 Used components:
 - DIGITEL SPCe controller
