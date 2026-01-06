@@ -1,0 +1,17 @@
+"""
+Konfigurace aplikace
+"""
+
+# Hardware
+DEFAULT_PORT = "COM7"
+DEFAULT_ADDR = 0x05
+DEFAULT_BAUD = 9600
+
+# Měření
+MEASUREMENT_INTERVAL = 0.5  # sekundy
+REFRESH_INTERVAL = 1000  # ms pro GUI refresh
+
+# GUI
+WINDOW_TITLE = "DIGITEL SPCe Pressure Monitor"
+WINDOW_WIDTH = 1200
+WINDOW_HEIGHT = 700
