@@ -4,7 +4,7 @@ Hlavní okno aplikace
 import time
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtWidgets
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QMessageBox, QFileDialog
 from storage.csv_handler import CSVHandler
 from gui.custom_axes import TimeAxisItem, ScientificAxisItem
 
@@ -56,6 +56,9 @@ class PressureViewer(QtWidgets.QMainWindow):
         info_layout.addWidget(self.filename_input)
 
         # Buttons
+        self.btn_view = QtWidgets.QPushButton("View Old Data")
+        self.btn_view.clicked.connect(self.view_old_data)
+
         self.btn_start = QtWidgets.QPushButton("Start Monitoring")
         self.btn_start.clicked.connect(self.start_monitor)
         self.btn_start.setEnabled(False)
@@ -67,6 +70,7 @@ class PressureViewer(QtWidgets.QMainWindow):
         self.btn_reset = QtWidgets.QPushButton("Reset Zoom")
         self.btn_reset.clicked.connect(self.reset_zoom)
 
+        info_layout.addWidget(self.btn_view)
         info_layout.addWidget(self.btn_start)
         info_layout.addWidget(self.btn_stop)
         info_layout.addWidget(self.btn_reset)
@@ -128,10 +132,68 @@ class PressureViewer(QtWidgets.QMainWindow):
             self.label_info.setText("❌ Filename is empty")
             return
 
+        # Vyčistí graf, pokud zobrazoval data
+        self.data_x = []
+        self.data_y = []
+        self.time_labels = []
+        self.curve.setData([], [])
+        self.label_stats.setText("")
+
         filename = f"data/spce_pressure_{name}_{csv_time}.csv"
         self.csv_handler = CSVHandler(filename)
         self.label_info.setText(f"📁 CSV: {filename}")
         self.btn_start.setEnabled(True)
+
+    def view_old_data(self):
+        """Zobrazí data ze starého CSV souboru"""
+
+        # ✅ Zastav monitoring, pokud běží
+        if self.timer.isActive():
+            self.timer.stop()
+
+        # Otevři file dialog
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select CSV File to View",
+            "SPCe_Dummy_data/",
+            "CSV Files (*.csv);;All Files (*)"
+        )
+
+        if not filename:
+            return  # Uživatel zrušil
+
+        # Načti data z vybraného souboru
+        temp_handler = CSVHandler(filename)
+        timestamps, pressures, time_strings = temp_handler.load_data()
+
+        if not timestamps:
+            self._show_error("No data found in selected file")
+            return
+
+        # ✅ Deaktivuj monitoring režim
+        self.csv_handler = None
+        self.active_monitoring_file = None
+        self.btn_start.setEnabled(False)
+        self.btn_stop.setEnabled(False)
+
+        # Zobraz data
+        self.data_x = timestamps
+        self.data_y = pressures
+        self.time_labels = time_strings
+        self.curve.setData(self.data_x, self.data_y)
+
+        # Zobraz statistiky
+        stats = temp_handler.get_stats(pressures)
+        if stats:
+            self.label_info.setText(
+                f"📊 Read only: {filename.split('/')[-1]} | Points: {stats['count']}"
+            )
+            self.label_stats.setText(
+                f"Min: {stats['min']:.2e} | Max: {stats['max']:.2e}"
+            )
+
+        # Automatický zoom na data
+        self.plot_widget.autoRange()
 
     def start_monitor(self):
         """Spustí monitoring"""
@@ -145,16 +207,30 @@ class PressureViewer(QtWidgets.QMainWindow):
         """Zastaví monitoring"""
         self.timer.stop()
 
+        # Zobraz finální statistiky
+        if self.csv_handler and self.data_y:
+            stats = self.csv_handler.get_stats(self.data_y)
+            if stats:
+                self.label_info.setText(
+                    f"⏸️ Stopped: {self.active_monitoring_file.split('/')[-1]} | Points: {stats['count']}"
+                )
+                self.label_stats.setText(
+                    f"Min: {stats['min']:.2e} | Max: {stats['max']:.2e}"
+                )
+        else:
+            self.label_info.setText("⏸️ Monitoring stopped")
+
         self.btn_start.setEnabled(True)
         self.btn_stop.setEnabled(False)
-        self.label_info.setText("⏸️ Monitoring stopped")
 
     def load_data(self):
-        """Načte a zobrazí data"""
+        """Načte a zobrazí data (pouze pokud je aktivní monitoring)"""
         if not self.csv_handler:
             return
 
-        self.csv_handler.save_record()
+        # ✅ Ulož nový záznam pouze při aktivním monitoringu
+        if self.timer.isActive():
+            self.csv_handler.save_record()
 
         timestamps, pressures, time_strings = self.csv_handler.load_data()
 
@@ -171,7 +247,9 @@ class PressureViewer(QtWidgets.QMainWindow):
         # Statistiky
         stats = self.csv_handler.get_stats(pressures)
         if stats:
-            self.label_info.setText(f"Points: {stats['count']}")
+            self.label_info.setText(
+                f"🔴 Live: {self.active_monitoring_file.split('/')[-1]} | Points: {stats['count']}"
+            )
             self.label_stats.setText(
                 f"Min: {stats['min']:.2e} | Max: {stats['max']:.2e}"
             )
