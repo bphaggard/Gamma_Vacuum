@@ -18,16 +18,19 @@ class TimeAxisItem(pg.AxisItem):
         for v in values:
             try:
                 dt = datetime.fromtimestamp(v)
-                if spacing < 60:  # méně než minuta
+                if spacing < 60:           # méně než minuta
                     s = dt.strftime('%H:%M:%S')
-                elif spacing < 3600:  # méně než hodina
+                elif spacing < 3600:       # méně než hodina
                     s = dt.strftime('%H:%M')
-                elif spacing < 86400:  # méně než den
+                elif spacing < 86400:      # méně než den
                     s = dt.strftime('%m-%d %H:%M')
                 else:
                     s = dt.strftime('%Y-%m-%d')
                 strings.append(s)
-            except:
+            except (ValueError, OSError, OverflowError):
+                # OverflowError pro hodnoty mimo rozsah datetime,
+                # OSError na Windows pro záporné timestampy,
+                # ValueError pro NaN apod.
                 strings.append('')
         return strings
 
