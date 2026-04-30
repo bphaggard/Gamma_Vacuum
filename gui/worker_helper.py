@@ -4,10 +4,13 @@ Worker pro měření tlaku v separátním vlákně.
 Worker VLASTNÍ SPCe spojení — port se otevírá jednou (start) a zavírá jednou
 (stop). Komunikace s GUI probíhá výhradně přes signály.
 """
+import logging
 from datetime import datetime
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
 
 from hardware.spce import SPCe
+
+logger = logging.getLogger(__name__)
 
 
 class PressureWorker(QObject):
@@ -52,6 +55,8 @@ class PressureWorker(QObject):
         Spuštěno z workerova threadu (signal thread.started → start).
         Otevře port a nastartuje periodické měření.
         """
+        logger.info("Connecting to SPCe on %s @ %d baud (addr=0x%02X)",
+                    self.port, self.baud, self.addr)
         try:
             self.spce = SPCe(self.port, self.addr, self.baud)
             if not self.spce.is_connected():
@@ -59,13 +64,16 @@ class PressureWorker(QObject):
 
             # Kontrola HV — když je vypnuté, monitoring nemá smysl spouštět
             if not self.spce.is_hv_on():
+                logger.warning("HV is OFF — refusing to start monitoring")
                 self.connection_lost.emit(
                     "High voltage is OFF — turn on HV before starting monitoring."
                 )
                 self._cleanup_and_emit_stopped()
                 return
+            logger.info("HV is ON, monitoring can start")
         except Exception as e:
             # Fatal už při startu
+            logger.exception("Cannot connect to SPCe")
             self.connection_lost.emit(f"Cannot connect to SPCe: {e}")
             self._cleanup_and_emit_stopped()
             return
@@ -78,6 +86,7 @@ class PressureWorker(QObject):
         self._timer.start()
 
         self._consecutive_timeouts = 0
+        logger.info("Monitoring started (1 Hz)")
         self.started.emit()
 
     @pyqtSlot()
@@ -102,6 +111,7 @@ class PressureWorker(QObject):
             self.spce.close()
             self.spce = None
 
+        logger.info("Monitoring stopped, port closed")
         self.stopped.emit()
 
     def _measure(self):
@@ -113,25 +123,32 @@ class PressureWorker(QObject):
             pressure = self.spce.get_pressure()
         except TimeoutError:
             self._consecutive_timeouts += 1
+            logger.warning("SPCe timeout (%d/%d)",
+                           self._consecutive_timeouts,
+                           self.MAX_CONSECUTIVE_TIMEOUTS)
             if self._consecutive_timeouts >= self.MAX_CONSECUTIVE_TIMEOUTS:
-                self.connection_lost.emit(
-                    f"SPCe not responding ({self.MAX_CONSECUTIVE_TIMEOUTS} timeouts in a row)"
-                )
+                msg = (f"SPCe not responding "
+                       f"({self.MAX_CONSECUTIVE_TIMEOUTS} timeouts in a row)")
+                logger.error(msg)
+                self.connection_lost.emit(msg)
                 self._cleanup_and_emit_stopped()
             else:
                 self.error.emit("Device not responding...")
             return
         except (ConnectionError, OSError) as e:
             # Hard fault — odpojený port, vypnuté zařízení atd.
+            logger.error("SPCe disconnected: %s", e)
             self.connection_lost.emit(f"SPCe disconnected: {e}")
             self._cleanup_and_emit_stopped()
             return
         except ValueError as e:
             # Nezvalidní odpověď — spíš jednorázová chyba; nereportujeme
             # to jako fatální, ale jako recoverable.
+            logger.warning("Bad pressure response: %s", e)
             self.error.emit(f"Bad response: {e}")
             return
         except Exception as e:
+            logger.exception("Unexpected error during measurement")
             self.connection_lost.emit(f"Unexpected error: {e}")
             self._cleanup_and_emit_stopped()
             return
@@ -143,6 +160,7 @@ class PressureWorker(QObject):
         try:
             self.csv_handler.append_record(pressure, when=now)
         except OSError as e:
+            logger.error("CSV write failed: %s", e)
             self.error.emit(f"CSV write failed: {e}")
             return
 

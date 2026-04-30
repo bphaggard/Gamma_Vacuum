@@ -5,9 +5,12 @@ Tento handler se stará POUZE o CSV. SPCe instanci vlastní worker thread
 (viz worker_helper.py); tady jen appendujeme hodnoty, které dostaneme.
 """
 import csv
+import logging
 import os
 from datetime import datetime
 from typing import List, Tuple, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class CSVHandler:
@@ -79,7 +82,7 @@ class CSVHandler:
                     pressures.append(p)
                     time_strings.append(s)
         except OSError as e:
-            print(f"Error loading CSV: {e}")
+            logger.error("Error loading CSV %s: %s", self.filename, e, exc_info=True)
 
         return timestamps, pressures, time_strings
 
@@ -93,7 +96,7 @@ class CSVHandler:
             pressure = float(str(row["pressure"]).strip())
             return timestamp, pressure, time_str
         except (ValueError, KeyError, TypeError) as e:
-            print(f"Skipping invalid row: {row} | Error: {e}")
+            logger.warning("Skipping invalid CSV row: %r | %s", row, e)
             return None
 
     def get_stats(self, pressures: List[float]) -> Optional[dict]:
